@@ -50,8 +50,8 @@ trap 'trap_error $LINENO' ERR
 
 #
 # MongoDB Backup Script
-# VER. 0.20
-# More Info: http://github.com/micahwedemeyer/automongobackup
+# VER. 0.22 - docker support - debug
+# More Info: https://github.com/thibault-ketterer/automongobackup
 
 # Note, this is a lobotomized port of AutoMySQLBackup
 # (http://sourceforge.net/projects/automysqlbackup/) for use with
@@ -283,6 +283,18 @@ REQUIREDBAUTHDB="yes"
 #=====================================================================
 # Change Log
 #=====================================================================
+# VER 0.22 - (2017-02-01) (author: Thibault Ketterer)
+#        - disk usage follow links if any
+#        - fix double backup if launched hourly
+#
+# VER 0.21 - (2017-01-31) (author: Thibault Ketterer)
+#        - Fixed hourly backup
+#        - change backup to permit daily + hourly + weekly.. on same day like
+#          in automysqlbackup
+#        - force TZ to UTC
+#        - docker support
+#        - debug in case of failure
+#
 # VER 0.11 - (2016-05-04) (author: Claudio Prato)
 #        - Fixed bugs in select_secondary_member() with authdb enabled
 #        - Fixed bugs in Compression function by removing the * symbol
