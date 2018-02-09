@@ -1,5 +1,53 @@
 #!/bin/bash
-set -eo pipefail
+set -eEo pipefail
+
+
+YEL='\033[33m'
+RED='\033[31m'
+GREEN='\033[32m'
+BLUE='\033[34m'
+CYAN='\033[36m'
+DEF='\033[0m'
+BOLD='\033[1m'
+WHITE="$DEF"
+
+if [ -z $BASH ];then
+    echo "please launch with ./$0"
+    exit 1
+fi
+
+function error_exit
+{
+    echo "" >&2
+    echo "" >&2
+    echo -e "$RED" >&2
+    echo -e "    ERROR $1" >&2
+    echo "" >&2
+    echo "" >&2
+    trap 2 3
+    exit 5
+}
+
+
+function trap_break
+{
+    error_exit "CTRL-C HIT script [$0]: line $1
+
+                last command : [$CYAN$BASH_COMMAND$RED]$DEF" "ctrl-c"
+}
+
+function trap_error
+{
+    error_exit "while running script [$0]: line $1
+
+                error in command : [$CYAN$BASH_COMMAND$RED]$DEF" "DEAD"
+}
+
+
+trap 'trap_break $LINENO' INT QUIT TERM
+trap 'trap_error $LINENO' ERR
+
+
 #
 # MongoDB Backup Script
 # VER. 0.20
