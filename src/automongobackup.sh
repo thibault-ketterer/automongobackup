@@ -706,7 +706,7 @@ echo ======================================================================
 
 echo Total disk space used for backup storage..
 echo Size - Location
-du -hs "$BACKUPDIR"
+du -hs $(readlink "$BACKUPDIR")
 echo
 echo ======================================================================
 
