@@ -371,7 +371,8 @@ done
 #=====================================================================
 
 PATH=/usr/local/bin:/usr/bin:/bin
-DATE=$(date +%Y-%m-%d_%Hh%Mm)                     # Datestamp e.g 2002-09-21
+DATE=$(date +%Y-%m-%d)                     # Datestamp e.g 2002-09-21
+DATETIME=$(date +%Y-%m-%d_%Hh%Mm)                 # Datestampfull e.g 2002-09-21_10h10m
 HOD=$(date +%s)                                   # Current timestamp for PITR backup
 DOW=$(date +%A)                                   # Day of the week e.g. Monday
 DNOW=$(date +%u)                                  # Day number of the week 1 to 7 where 1 represents Monday
@@ -449,6 +450,7 @@ else
     SED="sed -i"
 fi
 
+echo $LOGFILE
 # IO redirection for logging.
 touch "$LOGFILE"
 exec 6>&1           # Link file descriptor #6 with stdout.
@@ -608,66 +610,88 @@ echo
 echo "Backup of Database Server - $HOST on $DBHOST"
 echo ======================================================================
 
+backup_donot_exist () {
+    SUFFIX=""
+    dir=$(dirname "$1")
+    file=$(basename "$1")
+    if [ -n "$COMP" ]; then
+        [ "$COMP" = "gzip" ] && SUFFIX=".tgz"
+        [ "$COMP" = "bzip2" ] && SUFFIX=".tar.bz2"
+    fi
+    backupfile="$dir/$file$SUFFIX"
+    echo "testing for [$backupfile]"
+    if [ -f $backupfile ];then
+	    echo "file [$backupfile] altready there, skip"
+	    return 1 # false
+    fi
+    return 0 # true
+}
+
 echo "Backup Start $(date)"
 echo ======================================================================
 # Monthly Full Backup of all Databases
+# note: we can use name like this "/monthly/2018-02-01.February.tgz" cause we launch only on day == 1
 if [[ $DOM = "01" ]] && [[ $DOMONTHLY = "yes" ]]; then
     echo Monthly Full Backup
-    echo
     # Delete old monthly backups while respecting the set rentention policy.
     if [[ $MONTHLYRETENTION -ge 0 ]] ; then
         NUM_OLD_FILES=$(find $BACKUPDIR/monthly -depth -not -newermt "$MONTHLYRETENTION month ago" -type f | wc -l)
         if [[ $NUM_OLD_FILES -gt 0 ]] ; then
             echo Deleting "$NUM_OLD_FILES" global setting backup file\(s\) older than "$MONTHLYRETENTION" month\(s\) old.
-            find $BACKUPDIR/monthly -not -newermt "$MONTHLYRETENTION month ago" -type f -delete
+            find $BACKUPDIR/monthly -not -newermt "$MONTHLYRETENTION month ago" -type f -exec echo 'delete {}' \; -delete
         fi
     fi
     FILE="$BACKUPDIR/monthly/$DATE.$M"
+    backup_donot_exist "$FILE" && dbdump "$FILE" && compression "$FILE"
 
 # Weekly Backup
 elif [[ "$DNOW" = "$WEEKLYDAY" ]] && [[ "$DOWEEKLY" = "yes" ]] ; then
     echo Weekly Backup
-    echo
     if [[ $WEEKLYRETENTION -ge 0 ]] ; then
         # Delete old weekly backups while respecting the set rentention policy.
         NUM_OLD_FILES=$(find $BACKUPDIR/weekly -depth -not -newermt "$WEEKLYRETENTION week ago" -type f | wc -l)
         if [[ $NUM_OLD_FILES -gt 0 ]] ; then
             echo Deleting "$NUM_OLD_FILES" global setting backup file\(s\) older than "$WEEKLYRETENTION" week\(s\) old.
-            find $BACKUPDIR/weekly -not -newermt "$WEEKLYRETENTION week ago" -type f -delete
+            find $BACKUPDIR/weekly -not -newermt "$WEEKLYRETENTION week ago" -type f -exec echo 'delete {}' \; -delete
         fi
     fi
     FILE="$BACKUPDIR/weekly/week.$W.$DATE"
+    backup_donot_exist "$FILE" && dbdump "$FILE" && compression "$FILE"
+fi
 
 # Daily Backup
-elif [[ $DODAILY = "yes" ]] ; then
+# note: we cannot use name like this "/monthly/2018-02-01_10h10.tgz" otherwise it will do double backups if launched hourly
+if [[ $DODAILY = "yes" ]] ; then
     echo Daily Backup of Databases
-    echo
     # Delete old daily backups while respecting the set rentention policy.
     if [[ $DAILYRETENTION -ge 0 ]] ; then
         NUM_OLD_FILES=$(find $BACKUPDIR/daily -depth -not -newermt "$DAILYRETENTION days ago" -type f | wc -l)
         if [[ $NUM_OLD_FILES -gt 0 ]] ; then
             echo Deleting "$NUM_OLD_FILES" global setting backup file\(s\) made in previous weeks.
-            find "$BACKUPDIR/daily" -not -newermt "$DAILYRETENTION days ago" -type f -delete
+            echo find "$BACKUPDIR/daily" -not -newermt "$DAILYRETENTION days ago" -type f -exec echo 'delete {}' \; -delete
+            find "$BACKUPDIR/daily" -not -newermt "$DAILYRETENTION days ago" -type f -exec echo 'delete {}' \; -delete
         fi
     fi
     FILE="$BACKUPDIR/daily/$DATE.$DOW"
+    backup_donot_exist "$FILE" && dbdump "$FILE" && compression "$FILE"
+fi
 
 # Hourly Backup
-elif [[ $DOHOURLY = "yes" ]] ; then
+if [[ $DOHOURLY = "yes" ]] ; then
     echo Hourly Backup of Databases
-    echo
     # Delete old hourly backups while respecting the set rentention policy.
     if [[ $HOURLYRETENTION -ge 0 ]] ; then
         NUM_OLD_FILES=$(find $BACKUPDIR/hourly -depth -not -newermt "$HOURLYRETENTION hour ago" -type f | wc -l)
         if [[ $NUM_OLD_FILES -gt 0 ]] ; then
             echo "Deleting $NUM_OLD_FILES global setting backup file\(s\) made in previous weeks."
-            find $BACKUPDIR/hourly -not -newermt "$HOURLYRETENTION hour ago" -type f -delete
+            find $BACKUPDIR/hourly -not -newermt "$HOURLYRETENTION hour ago" -type f -exec echo 'delete {}' \; -delete
         fi
     fi
-    FILE="$BACKUPDIR/hourly/$DATE.$DOW.$HOD"
+    FILE="$BACKUPDIR/hourly/$DATETIME.$DOW.$HOD"
     # convert timestamp to date: echo $TIMESTAMP | gawk '{print strftime("%c", $0)}'
-
+    backup_donot_exist "$FILE" && dbdump "$FILE" && compression "$FILE"
 fi
+
 
 # FILE will not be set if no frequency is selected.
 if [[ -z "$FILE" ]] ; then
@@ -675,8 +699,6 @@ if [[ -z "$FILE" ]] ; then
   echo "Please set one of DOHOURLY,DODAILY,DOWEEKLY,DOMONTHLY to \"yes\"" 
   exit 1
 fi
-
-dbdump "$FILE" && compression "$FILE"
 
 echo ----------------------------------------------------------------------
 echo "Backup End Time $(date)"
