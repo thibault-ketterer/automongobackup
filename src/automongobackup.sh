@@ -91,6 +91,14 @@ trap 'trap_error $LINENO' ERR
 # Unecessary if backup all collections
 # EXCLUDE_COLLECTIONS=""
 
+# may be usefull if host and container don't have the same TZ
+export TZ="UTC"
+MONGODUMP='mongodump'
+# for docker
+# MONGODUMP='docker exec crawler_mongodb_1 /opt/rh/rh-mongodb32/root/usr/bin/mongodump'
+# DOCK=`docker inspect --format='{{.Name}}' $(docker ps -aq --no-trunc) |fgrep r-crawler-common-services-mongodb | sed -e 's#^/##'`
+# MONGODUMP="docker exec $DOCK /opt/rh/rh-mongodb32/root/usr/bin/mongodump"
+
 # Username to access the mongo server e.g. dbuser
 # Unnecessary if authentication is off
 # DBUSERNAME=""
@@ -111,6 +119,12 @@ DBPORT="27017"
 
 # Backup directory location e.g /backups
 BACKUPDIR="/var/backups/mongodb"
+
+# if using centos docker image centos/mongodb-32-centos7
+# mkdir -p $BACKUPDIR
+# chmod g+w $BACKUPDIR
+# chmod g+s $BACKUPDIR
+# chown 184:997 -R $BACKUPDIR
 
 # Mail setup
 # What would you like to be mailed to you?
@@ -430,7 +444,8 @@ if [ "$DOHOURLY" == "yes" ]; then
 fi
 
 # Create required directories
-mkdir -p $BACKUPDIR/{hourly,daily,weekly,monthly} || shellout 'failed to create directories'
+echo "creating dirs"
+mkdir -p $BACKUPDIR/{hourly,daily,weekly,monthly} && chmod g+w $BACKUPDIR/{hourly,daily,weekly,monthly} || shellout 'failed to create directories'
 
 if [ "$LATEST" = "yes" ]; then
     rm -rf "$BACKUPDIR/latest"
