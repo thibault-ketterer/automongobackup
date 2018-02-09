@@ -383,8 +383,6 @@ LOGFILE=$BACKUPDIR/$DBHOST-$(date +%H%M).log       # Logfile Name
 LOGERR=$BACKUPDIR/ERRORS_$DBHOST-$(date +%H%M).log # Logfile Name
 OPT=""                                            # OPT string for use with mongodump
 OPTSEC=""                                         # OPT string for use with mongodump in select_secondary_member function
-QUERY=""                                          # QUERY string for use with mongodump
-HOURLYQUERY=""                                    # HOURLYQUERY string for use with mongodump
 
 # Do we need to use a username/password?
 if [ "$DBUSERNAME" ]; then
@@ -431,16 +429,8 @@ if [ "$DOHOURLY" == "yes" ]; then
 
   # getting PITR START timestamp
   # shellcheck disable=SC2012
-  [ "$COMP" = "gzip" ] && HOURLYQUERY=$(ls -t $BACKUPDIR/hourly | head -n 1 | cut -d '.' -f3)
+  [ "$COMP" = "gzip" ]
 
-  # setting the start timestamp to NOW for the first execution
-  if [ -z "$HOURLYQUERY" ]; then
-      QUERY=""
-    else
-      # limit the documents included in the output of mongodump
-      # shellcheck disable=SC2016
-      QUERY='{ "ts" : { $gt :  Timestamp('$HOURLYQUERY', 1) } }'
-  fi
 fi
 
 # Create required directories
@@ -449,24 +439,7 @@ mkdir -p $BACKUPDIR/{hourly,daily,weekly,monthly} && chmod g+w $BACKUPDIR/{hourl
 
 if [ "$LATEST" = "yes" ]; then
     rm -rf "$BACKUPDIR/latest"
-    mkdir -p "$BACKUPDIR/latest" || shellout 'failed to create directory'
-fi
-
-# Do we use a filter for hourly point-in-time snapshotting?
-if [ "$DOHOURLY" == "yes" ]; then
-
-  # getting PITR START timestamp
-  # shellcheck disable=SC2012
-  [ "$COMP" = "gzip" ] && HOURLYQUERY=$(ls -t $BACKUPDIR/hourly | head -n 1 | cut -d '.' -f3)
-
-  # setting the start timestamp to NOW for the first execution
-  if [ -z "$HOURLYQUERY" ]; then
-      QUERY=""
-    else
-      # limit the documents included in the output of mongodump
-      # shellcheck disable=SC2016
-      QUERY='{ "ts" : { $gt :  Timestamp('$HOURLYQUERY', 1) } }'
-  fi
+    mkdir -p "$BACKUPDIR/latest" && chmod g+w "$BACKUPDIR/latest" || shellout 'failed to create directory' 
 fi
 
 # Check for correct sed usage
@@ -494,17 +467,10 @@ exec 2> "$LOGERR"     # stderr replaced with file $LOGERR.
 
 # Database dump function
 dbdump () {
-    if [ -n "$QUERY" ]; then
-        # filter for point-in-time snapshotting and if DOHOURLY=yes
-        # shellcheck disable=SC2086
-        mongodump --quiet --host=$DBHOST:$DBPORT --out="$1" $OPT -q "$QUERY"
-        MDUMPSTATUS=$?
-      else
-        # all others backups type
-        # shellcheck disable=SC2086
-        mongodump --quiet --host=$DBHOST:$DBPORT --out="$1" $OPT
-        MDUMPSTATUS=$?
-    fi
+    # shellcheck disable=SC2086
+    # echo "DEBUG   $MONGODUMP --host=$DBHOST:$DBPORT --out='$1' $OPT"
+    $MONGODUMP --host=$DBHOST:$DBPORT --out="$1" $OPT
+    MDUMPSTATUS=$?
     if [ $MDUMPSTATUS -ne 0 ]; then
         echo "ERROR: mongodump failed: $1" >&2
         return 1
