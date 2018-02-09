@@ -145,12 +145,12 @@ export MAXATTSIZE="4000"
 #=============================================================================
 
 # Do you want to do hourly backups? How long do you want to keep them?
-DOHOURLY="no"
+DOHOURLY="yes"
 HOURLYRETENTION=24
 
 # Do you want to do daily backups? How long do you want to keep them?
 DODAILY="yes"
-DAILYRETENTION=0
+DAILYRETENTION=5
 
 # Which day do you want weekly backups? (1 to 7 where 1 is Monday)
 DOWEEKLY="yes"
@@ -181,7 +181,7 @@ LATESTLINK="yes"
 OPLOG="yes"
 
 # Choose other Server if is Replica-Set Master
-REPLICAONSLAVE="yes"
+REPLICAONSLAVE="no"
 
 # Allow DBUSERNAME without DBAUTHDB
 REQUIREDBAUTHDB="yes"
